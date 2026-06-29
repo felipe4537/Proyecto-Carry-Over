@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validacion de Beneficios Carry Over — Proyecto SSAS</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(180,30,30,0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(180,30,30,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(100,20,20,0.06) 0%, transparent 60%),
+                #050505;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            background: linear-gradient(135deg, #050505 0%, #1a0000 25%, #4a0000 55%, #1a0000 80%, #050505 100%);
+            border: 1px solid rgba(220,38,38,0.25);
+            padding: 2rem 3rem;
+            border-radius: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -80%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(ellipse at 20% 40%, rgba(220,38,38,0.15) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 60%, rgba(220,38,38,0.10) 0%, transparent 60%),
+                        radial-gradient(ellipse at 50% 80%, rgba(239,68,68,0.06) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(220,38,38,0.4), transparent);
+        }
+        .hero-content { flex: 1; position: relative; }
+        .hero-logo {
+            flex-shrink: 0;
+            width: 150px;
+            height: auto;
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            animation: logo-float 4s ease-in-out infinite;
+        }
+        .hero-logo::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+            transform: skewX(-20deg);
+            animation: logo-shimmer 3s ease-in-out infinite;
+        }
+        @keyframes logo-float {
+            0%, 100% { transform: translateY(0); filter: drop-shadow(0 0 20px rgba(220,38,38,0.15)); }
+            25% { transform: translateY(-5px); filter: drop-shadow(0 0 40px rgba(220,38,38,0.3)); }
+            50% { transform: translateY(0); filter: drop-shadow(0 0 60px rgba(220,38,38,0.35)); }
+            75% { transform: translateY(-5px); filter: drop-shadow(0 0 40px rgba(220,38,38,0.3)); }
+        }
+        @keyframes logo-shimmer {
+            0% { left: -100%; }
+            30% { left: 150%; }
+            100% { left: 150%; }
+        }
+        .hero-logo img {
+            width: 100%;
+            height: auto;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+        .hero h1 {
+            font-size: 2.4rem; font-weight: 800; letter-spacing: -0.5px;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 30px rgba(255,255,255,0.08);
+        }
+        .hero .subtitle {
+            font-size: 1rem;
+            display: flex; gap: 1.5rem; flex-wrap: wrap;
+            color: #94a3b8;
+        }
+        .hero .subtitle strong { color: #f1f5f9; }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(251,191,36,0.1);
+            border: 1px solid rgba(251,191,36,0.3);
+            padding: 0.25rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.85rem;
+            color: #fcd34d;
+            font-weight: 600;
+        }
+        .status-badge .dot {
+            width: 8px; height: 8px;
+            background: #fcd34d;
+            border-radius: 50%;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(251,191,36,0.4); }
+            50% { opacity: 0.7; transform: scale(1.2); box-shadow: 0 0 8px 2px rgba(251,191,36,0.2); }
+        }
+        .badge-tech {
+            background: rgba(220,38,38,0.12);
+            border: 1px solid rgba(220,38,38,0.25);
+            padding: 0.2rem 0.8rem;
+            border-radius: 2rem;
+            font-size: 0.8rem;
+            color: #fca5a5;
+        }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: linear-gradient(145deg, #111111, #0a0a0a);
+            border-radius: 1rem;
+            padding: 1.5rem 1.75rem;
+            border: 1px solid rgba(220,38,38,0.2);
+            transition: all 0.3s ease;
+        }
+        .card h2 {
+            font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;
+            padding-bottom: 0.6rem; border-bottom: 1px solid #2a1a1a;
+            display: flex; align-items: center; gap: 0.75rem;
+            color: #ffffff;
+        }
+        .card h2::before {
+            content: '';
+            display: inline-block;
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--dot-color, #ef4444);
+            animation: pulse-dot 1.5s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        .card h3 {
+            font-size: 0.9rem; font-weight: 700; margin: 1rem 0 0.6rem;
+            color: #f87171; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .card ul { list-style: none; padding: 0; }
+        .card ul li {
+            padding: 0.5rem 0 0.5rem 1.2rem;
+            position: relative; font-size: 0.9rem; line-height: 1.5;
+            color: #cbd5e1;
+        }
+        .card ul li::before {
+            content: ">"; position: absolute; left: 0;
+            color: #ef4444; font-weight: 700;
+        }
+        .card ul li strong { color: #f1f5f9; }
+
+        .tag {
+            display: inline-block; font-size: 0.72rem; font-weight: 600;
+            padding: 0.2rem 0.7rem; border-radius: 1rem; margin-right: 0.3rem;
+            letter-spacing: 0.3px;
+        }
+        .tag-red    { background: rgba(220,38,38,0.15); color: #fca5a5; border: 1px solid rgba(220,38,38,0.15); }
+        .tag-green  { background: rgba(52,211,153,0.12); color: #6ee7b7; border: 1px solid rgba(52,211,153,0.12); }
+        .tag-amber  { background: rgba(251,191,36,0.12); color: #fcd34d; border: 1px solid rgba(251,191,36,0.12); }
+        .tag-rose   { background: rgba(244,63,94,0.12); color: #fda4af; border: 1px solid rgba(244,63,94,0.12); }
+        .tag-purple { background: rgba(167,139,250,0.12); color: #c4b5fd; border: 1px solid rgba(167,139,250,0.12); }
+
+        hr { border: none; border-top: 1px solid #2a1a1a; margin: 1rem 0; }
+
+        /* ===== GRID ===== */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        @media (max-width: 1000px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        /* ===== OBJETIVO PILLS ===== */
+        .pill-group {
+            display: flex; gap: 1.5rem; margin-top: 0.75rem; flex-wrap: wrap;
+        }
+        .pill {
+            padding: 0.4rem 1.2rem; border-radius: 2rem; font-size: 0.85rem;
+            font-weight: 600; display: flex; align-items: center; gap: 0.4rem;
+            letter-spacing: 0.2px;
+        }
+        .pill-red   { background: rgba(220,38,38,0.12); color: #fca5a5; border: 1px solid rgba(220,38,38,0.3); }
+        .pill-green { background: rgba(52,211,153,0.12); color: #6ee7b7; border: 1px solid rgba(52,211,153,0.25); }
+        .pill-rose  { background: rgba(244,63,94,0.12); color: #fda4af; border: 1px solid rgba(244,63,94,0.25); }
+
+        /* ===== STEP CARDS ===== */
+        .step-card {
+            display: flex; gap: 1rem; align-items: flex-start;
+            padding: 1rem 1.2rem; background: #0a0a0a; border-radius: 0.7rem;
+            margin-bottom: 0.75rem; min-height: 110px;
+            border-left: 4px solid #dc2626;
+            border: 1px solid rgba(220,38,38,0.2);
+            border-left-width: 4px;
+            border-left-color: #dc2626;
+            transition: all 0.3s ease;
+        }
+        .step-card:hover {
+            border-color: rgba(220,38,38,0.3);
+            border-left-color: #ef4444;
+        }
+        .step-card .num {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: #fff; font-weight: 700;
+            width: 2rem; height: 2rem; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; font-size: 0.85rem;
+            box-shadow: 0 2px 8px rgba(220,38,38,0.3);
+        }
+        .step-card .body { flex: 1; }
+        .step-card .body h4 { font-size: 0.92rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.2rem; }
+        .step-card .body p { font-size: 0.82rem; color: #94a3b8; line-height: 1.45; }
+
+        /* ===== SCHEMA BOXES ===== */
+        .schema-box {
+            border: 1px solid #2a1a1a; border-radius: 0.7rem;
+            padding: 0.8rem 1rem; background: #0a0a0a; margin-bottom: 0.6rem;
+            transition: border-color 0.3s;
+        }
+        .schema-box:hover { border-color: #4a1a1a; }
+        .schema-box .dim-title {
+            font-weight: 700; font-size: 0.85rem; color: #f87171; margin-bottom: 0.25rem;
+        }
+        .schema-box .attrs {
+            font-size: 0.78rem; color: #94a3b8;
+        }
+        .schema-box .attrs span { display: inline-block; margin-right: 0.5rem; }
+
+        .rel-line {
+            text-align: center; font-size: 0.75rem; color: #4a1a1a;
+            padding: 0.15rem 0;
+            font-weight: 600;
+        }
+
+        /* ===== MERMAID ===== */
+        .mermaid { display: flex; justify-content: center; }
+
+        /* ===== SECTION TITLE ===== */
+        .section-title {
+            font-size: 1.4rem; font-weight: 800; margin: 2rem 0 1rem;
+            color: #ffffff;
+            letter-spacing: -0.3px;
+            text-shadow: 0 0 20px rgba(255,255,255,0.1);
+            display: flex; align-items: center; gap: 0.75rem;
+        }
+        .section-title::before {
+            content: '';
+            display: inline-block;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--dot-color, #3b82f6);
+            animation: pulse-dot 1.5s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+
+        /* ===== ACTION PLAN ===== */
+        .plan-card {
+            background: linear-gradient(135deg, #111111, #0a0a0a, #111111);
+            border: 1px solid rgba(220,38,38,0.2); border-radius: 1rem;
+            padding: 1.5rem 1.75rem; margin: 2rem 0 120px;
+            transition: all 0.3s ease;
+        }
+        .plan-card h2 {
+            font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem;
+            padding-bottom: 0.6rem; border-bottom: 1px solid #2a1a1a;
+            display: flex; align-items: center; gap: 0.75rem;
+            color: #ffffff;
+        }
+        .plan-card h2::before {
+            content: '';
+            display: inline-block;
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--dot-color, #ef4444);
+            animation: pulse-dot 1.5s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        .plan-card ol {
+            padding-left: 1.5rem; font-size: 0.9rem; line-height: 2;
+            color: #cbd5e1;
+        }
+        .plan-card ol li { transition: transform 0.2s; }
+        .plan-card ol li:hover { transform: translateX(4px); color: #f1f5f9; }
+        .plan-card ol li strong { color: #f1f5f9; }
+        .plan-card ol li::marker { color: #dc2626; font-weight: 700; }
+
+        /* ===== KPI STYLES ===== */
+        .kpi-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.85rem;
+        }
+        .kpi-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.65rem 0.85rem;
+            background: rgba(0,0,0,0.3);
+            border-radius: 0.6rem;
+            border: 1px solid rgba(220,38,38,0.1);
+        }
+        .kpi-value {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #ef4444;
+            min-width: 2.2rem;
+            text-align: center;
+        }
+        .kpi-label {
+            font-size: 0.82rem;
+            color: #cbd5e1;
+            line-height: 1.3;
+        }
+        @media (max-width: 800px) {
+            .kpi-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        .footer {
+            text-align: center; margin: 2rem 0 0.5rem;
+            color: #f1f5f9; font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+
+        .accent-line {
+            width: 3.5rem; height: 4px;
+            background: linear-gradient(90deg, #dc2626, #ef4444, #fca5a5);
+            border-radius: 2px; margin-bottom: 1rem;
+        }
+
+        /* ===== DECORATIVE DIVIDER ===== */
+        .divider {
+            margin: 3rem auto;
+            width: 80%;
+            max-width: 400px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #dc2626, transparent);
+            border-radius: 2rem;
+            user-select: none;
+        }
+
+        /* ===== FLOWCHART BUTTON ===== */
+        .btn-flowchart-wrapper {
+            margin: 2rem 0 120px;
+            display: flex;
+            justify-content: center;
+        }
+        .btn-flowchart {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: #fff;
+            border: none;
+            padding: 1rem 3rem;
+            border-radius: 0.75rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.3px;
+        }
+        .btn-flowchart:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(220,38,38,0.3);
+        }
+
+        /* ===== FLOWCHART OVERLAY ===== */
+        .flowchart-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #050505;
+            z-index: 1000;
+            overflow: auto;
+            padding: 2rem;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .flowchart-overlay.visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: all;
+        }
+        .flowchart-overlay .overlay-header {
+            width: 100%;
+            max-width: 1400px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+        .flowchart-overlay .overlay-header h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 0;
+        }
+        .overlay-title-card {
+            background: linear-gradient(145deg, #111111, #0a0a0a);
+            border: 1px solid rgba(220,38,38,0.2);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1.5rem;
+        }
+        .btn-back {
+            background: transparent;
+            color: #fca5a5;
+            border: 1px solid rgba(220,38,38,0.3);
+            padding: 0.6rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-back:hover {
+            background: rgba(220,38,38,0.1);
+            border-color: #dc2626;
+        }
+        .flowchart-overlay .mermaid {
+            width: 100%;
+            max-width: 1400px;
+            display: flex;
+            justify-content: center;
+        }
+        .flowchart-overlay .mermaid svg {
+            max-width: 100%;
+            height: auto;
+            transform: scale(1.2);
+            transform-origin: center top;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- ============= HERO ============= -->
+    <div class="hero">
+        <div class="hero-content">
+            <h1 style="--dot-color:#ef4444">Validacion de Beneficios Carry Over</h1>
+            <div class="subtitle">
+                <span class="status-badge"><span class="dot"></span> En Proceso</span>
+                <span>Proyecto de acreditamiento — Gerencia de Finanzas</span>
+                <span class="badge-tech">SSAS Tabular</span>
+            </div>
+        </div>
+        <div class="hero-logo">
+            <img src="https://logospng.org/download/claro/logo-claro-4096.png"
+                 alt="Claro"
+                 onerror="this.parentElement.innerHTML='<div style=\'font-size:2rem;font-weight:800;color:#ef4444;filter:drop-shadow(0 0 10px rgba(239,68,68,0.3));\'>CLARO</div>'">
+        </div>
+    </div>
+
+    <!-- ============= OBJETIVO ============= -->
+    <div class="card" style="margin-bottom: 48px;">
+        <h2 style="--dot-color:#ef4444">Objetivo del Proyecto</h2>
+        <div class="accent-line"></div>
+        <p style="font-size: 0.95rem; line-height: 1.7; color: #cbd5e1;">
+            Validar que el proceso de asignacion de beneficios <strong style="color:#f1f5f9;">carry over (modificado)</strong>
+            —solicitado por Gerencia de Finanzas— este acreditando correctamente a los clientes que migran de
+            <strong style="color:#f1f5f9;">Postpago a Prepago</strong> en tres puntos criticos:
+        </p>
+        <div class="pill-group">
+            <span class="pill pill-red">Saldo en cuenta de bono</span>
+            <span class="pill pill-green">Vigencia del beneficio</span>
+            <span class="pill pill-rose">Perfil asignado</span>
+        </div>
+    </div>
+
+    <div class="divider">* * *</div>
+
+    <!-- ============= DATA SOURCES + CUBO ============= -->
+    <div class="grid-2">
+        <div class="card">
+            <h2 style="--dot-color:#ef4444">Informacion Requerida</h2>
+            <div class="accent-line"></div>
+
+            <h3>Postpago — Origen</h3>
+            <ul>
+                <li><strong>Clientes que migraron</strong> de Postpago a Prepago</li>
+                <li><strong>Saldo carry over</strong> al momento de la migracion</li>
+                <li><strong>Fecha de migracion</strong> (cambio de plan)</li>
+                <li><strong>Tipo de beneficio</strong> original en Postpago</li>
+                <li><strong>ID Cliente / Linea</strong> para cruce</li>
+            </ul>
+
+            <h3>Prepago — Destino</h3>
+            <ul>
+                <li><strong>Saldo acreditado</strong> en cuenta de bono</li>
+                <li><strong>Tipo(s) de beneficio</strong> segun politica establecida</li>
+                <li><strong>Vigencia</strong> del beneficio (fecha de expiracion)</li>
+                <li><strong>Perfil asignado</strong> en Prepago</li>
+                <li><strong>Fecha de acreditacion</strong></li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2 style="--dot-color:#ef4444">Modelo de Datos — Cubo SSAS</h2>
+            <div class="accent-line"></div>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.75rem;">
+                Base de datos Tabular: <strong style="color:#f1f5f9;">CARRYOVER_AUDIT_2026</strong>
+            </p>
+
+            <div class="schema-box">
+                <div class="dim-title">DimCliente</div>
+                <div class="attrs">
+                    <span class="tag tag-red">PK</span> id_cliente
+                    <span>linea</span> <span>tipo_doc</span> <span>documento</span>
+                    <span>nombre</span> <span>segmento</span>
+                </div>
+            </div>
+            <div class="rel-line">| 1:N</div>
+            <div class="schema-box">
+                <div class="dim-title">DimTiempo</div>
+                <div class="attrs">
+                    <span class="tag tag-red">PK</span> fecha
+                    <span>ano</span> <span>mes</span> <span>dia</span> <span>semana</span>
+                </div>
+            </div>
+            <div class="rel-line">| 1:N</div>
+            <div class="schema-box" style="border-color: #6b1a1a;">
+                <div class="dim-title" style="color:#fca5a5;">FactMigraciones</div>
+                <div class="attrs">
+                    <span class="tag tag-rose">FK</span> id_cliente
+                    <span class="tag tag-rose">FK</span> fecha_migracion
+                    <span>saldo_carry_over</span>
+                    <span>tipo_beneficio_origen</span>
+                </div>
+            </div>
+            <div class="rel-line">| 1:1</div>
+            <div class="schema-box" style="border-color: #065f46;">
+                <div class="dim-title" style="color:#6ee7b7;">FactAcreditaciones</div>
+                <div class="attrs">
+                    <span class="tag tag-rose">FK</span> id_cliente
+                    <span class="tag tag-rose">FK</span> fecha_acreditacion
+                    <span>monto_acreditado</span>
+                    <span>tipo_beneficio_destino</span>
+                    <span>vigencia</span>
+                    <span>perfil_asignado</span>
+                </div>
+            </div>
+
+            <h3>Dimensiones de Apoyo</h3>
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                <span class="tag tag-purple">DimTipoBeneficio</span>
+                <span class="tag tag-amber">DimPerfil</span>
+                <span class="tag tag-green">DimProducto</span>
+                <span class="tag tag-red">DimEstatusValidacion</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="divider">* * *</div>
+
+    <!-- ============= PROCESO ============= -->
+    <h2 class="section-title" style="--dot-color:#ef4444">Proceso de Validacion</h2>
+    <div class="grid-2" style="margin-bottom: 120px;">
+        <div>
+            <div class="step-card">
+                <div class="num">1</div>
+                <div class="body">
+                    <h4>Extraer y cargar datos Postpago</h4>
+                    <p>Obtener clientes que migraron a Prepago con su saldo carry over, fecha de migracion y tipo de beneficio. Poblar FactMigraciones en el cubo.</p>
+                </div>
+            </div>
+            <div class="step-card">
+                <div class="num">2</div>
+                <div class="body">
+                    <h4>Extraer y cargar datos Prepago</h4>
+                    <p>Obtener para los mismos clientes: monto acreditado, tipo de beneficio destino, vigencia y perfil. Poblar FactAcreditaciones.</p>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="step-card">
+                <div class="num">3</div>
+                <div class="body">
+                    <h4>Validar acreditacion</h4>
+                    <p>Cruzar ambas fuentes por cliente y verificar: monto coincide, tipo beneficio correcto, vigencia vigente, perfil asignado segun politica.</p>
+                </div>
+            </div>
+            <div class="step-card">
+                <div class="num">4</div>
+                <div class="body">
+                    <h4>Reportar resultados</h4>
+                    <p>Tablero de control con clientes OK y discrepancias (monto, tipo, vigencia, perfil), listo para entregar a Gerencia.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="divider">* * *</div>
+
+    <!-- ============= KPIs ============= -->
+    <h2 class="section-title" style="--dot-color:#ef4444">KPIs del Proyecto</h2>
+    <div class="grid-2" style="margin-bottom: 120px;">
+        <div class="card">
+            <h2 style="--dot-color:#ef4444">Volumen de Migraciones</h2>
+            <div class="accent-line"></div>
+            <div class="kpi-list">
+                <div class="kpi-item">
+                    <span class="kpi-value">Q</span>
+                    <span class="kpi-label">Postpago a Prepago</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-value">%</span>
+                    <span class="kpi-label">Migracion sobre base total</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-value">Q</span>
+                    <span class="kpi-label">Migraciones por periodo (mes/trimestre)</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-value">%</span>
+                    <span class="kpi-label">Variacion vs periodo anterior (MoM)</span>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <h2 style="--dot-color:#ef4444">Precision de Validacion</h2>
+            <div class="accent-line"></div>
+            <div class="kpi-list">
+                <div class="kpi-item">
+                    <span class="kpi-value">Q</span>
+                    <span class="kpi-label">Migraciones correctas (OK)</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-value">Q</span>
+                    <span class="kpi-label">Migraciones erroneas (discrepancia)</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-value">%</span>
+                    <span class="kpi-label">Tasa de acierto (precision)</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-value">Q</span>
+                    <span class="kpi-label">Discrepancias por tipo (monto, vigencia, perfil)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 120px;">
+        <h2 style="--dot-color:#ef4444">KPIs Financieros y de Impacto</h2>
+        <div class="accent-line"></div>
+        <div class="kpi-grid">
+            <div class="kpi-item">
+                <span class="kpi-value">$</span>
+                <span class="kpi-label">Monto total carry over acreditado</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-value">$</span>
+                <span class="kpi-label">Monto total en discrepancia</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-value">$</span>
+                <span class="kpi-label">Promedio saldo carry over por cliente</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-value">%</span>
+                <span class="kpi-label">Impacto financiero de errores</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-value">Dias</span>
+                <span class="kpi-label">Tiempo promedio migracion → acreditacion</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-value">Top</span>
+                <span class="kpi-label">Modelos con mayor tasa de error</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============= FLUJO ============= -->
+    <h2 class="section-title" style="--dot-color:#ef4444">Diagrama de Flujo del Proceso</h2>
+    <div class="btn-flowchart-wrapper">
+        <button class="btn-flowchart" onclick="showFlowchart()">Ver Diagrama de Flujo</button>
+    </div>
+
+    <div class="divider">* * *</div>
+
+    <!-- ============= PLAN DE ACCION ============= -->
+    <div class="plan-card">
+        <h2 style="--dot-color:#ef4444">Plan de Accion — Ruta Critica</h2>
+        <div class="grid-2">
+            <ol>
+                <li><strong>Solicitar a Finanzas / TI</strong> — Data de Postpago: clientes que migraron + saldo carry over</li>
+                <li><strong>Solicitar a Prepago / IT</strong> — Data de acreditaciones: monto, tipo, vigencia, perfil</li>
+                <li><strong>Definir reglas de validacion</strong> con el equipo correspondiente</li>
+            </ol>
+            <ol start="4">
+                <li><strong>Construir DW</strong> — Tablas de hechos y dimensiones segun modelo propuesto</li>
+                <li><strong>Implementar cubo SSAS</strong> — Tabular 1600 con medidas de validacion</li>
+                <li><strong>Construir tablero de resultados</strong> — Visualizacion de OK / Discrepancia</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="footer">
+        Proyecto Validacion Carry Over — SSAS Tabular — Gerencia de Finanzas
+    </div>
+
+</div>
+
+<!-- ===== FLOWCHART OVERLAY ===== -->
+<div id="flowchart-overlay" class="flowchart-overlay">
+    <div class="overlay-header">
+        <div class="overlay-title-card">
+            <h2>Diagrama de Flujo del Proceso</h2>
+        </div>
+        <button class="btn-back" onclick="hideFlowchart()"><span style="font-size:1.2rem;">&#8592;</span> Regresar</button>
+    </div>
+    <pre class="mermaid">
+flowchart TB
+    T1["FASE 1 — Extraccion"] ~~~ A["INICIO"]
+    A --> B["Extraer Postpago<br>migrantes + carry over"]
+    B --> C["Extraer Prepago<br>acreditaciones"]
+    C --> D["Cruzar datos<br>por cliente"]
+    T2["FASE 2 — Validacion"] ~~~ D
+    D --> E{"Saldo<br>acreditado?"}
+    E -- Si --> F["Validar:<br>monto, tipo,<br>vigencia, perfil"]
+    E -- No --> G["Discrepancia:<br>sin acreditacion"]
+    F --> H{"Todo<br>correcto?"}
+    H -- Si --> I["CLIENTE OK"]
+    H -- No --> J["Discrepancia:<br>detalle por campo"]
+    T3["FASE 3 — Reporte"] ~~~ K["Generar Reporte<br>Consolidado"]
+    G & I & J --> K
+    K --> L["FIN"]
+
+    style A fill:#2a0000,color:#ffffff,stroke:#ffffff,stroke-width:2px
+    style L fill:#2a0000,color:#ffffff,stroke:#ffffff,stroke-width:2px
+    style I fill:#064e3b,color:#6ee7b7,stroke:#ffffff,stroke-width:2px
+    style G fill:#4a0000,color:#fca5a5,stroke:#ffffff,stroke-width:2px
+    style J fill:#4a0000,color:#fca5a5,stroke:#ffffff,stroke-width:2px
+    style K fill:#451a03,color:#fcd34d,stroke:#ffffff,stroke-width:2px
+    style T1 fill:transparent,color:#ef4444,stroke:none,font-weight:bold
+    style T2 fill:transparent,color:#f87171,stroke:none,font-weight:bold
+    style T3 fill:transparent,color:#fcd34d,stroke:none,font-weight:bold
+    </pre>
+</div>
+
+<script>
+    function showFlowchart() {
+        document.getElementById('flowchart-overlay').classList.add('visible');
+        document.body.style.overflow = 'hidden';
+    }
+    function hideFlowchart() {
+        document.getElementById('flowchart-overlay').classList.remove('visible');
+        document.body.style.overflow = '';
+    }
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'dark',
+        themeVariables: {
+            fontFamily: 'Segoe UI, system-ui, sans-serif',
+            fontSize: '14px',
+            primaryColor: '#dc2626',
+            primaryTextColor: '#e2e8f0',
+            primaryBorderColor: '#6b1a1a',
+            lineColor: '#dc2626',
+            edgeStrokeWidth: 3,
+            secondaryColor: '#111111',
+            tertiaryColor: '#0a0a0a',
+            mainBkg: '#111111',
+            nodeBorder: '#ffffff',
+            clusterBkg: '#0d0d0d',
+            clusterBorder: 'transparent',
+            titleColor: '#f1f5f9',
+            edgeLabelBackground: '#111111',
+            nodeTextColor: '#ffffff',
+        },
+        flowchart: {
+            htmlLabels: true,
+            curve: 'basis',
+            padding: 16,
+            nodeSpacing: 35,
+            rankSpacing: 45,
+        }
+    });
+</script>
+</body>
+</html>
